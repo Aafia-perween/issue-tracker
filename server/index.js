@@ -6,6 +6,7 @@ const db = require('./db');
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use('/api/auth', require('./routes/auth'));
 
 app.get('/api/health', async (req, res) => {
   try {
