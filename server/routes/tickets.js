@@ -3,6 +3,10 @@ const db = require('../db');
 
 const router = express.Router({ mergeParams: true });
 
+function notify(req) {
+  req.app.get('io').to(`workspace:${req.params.workspaceId}`).emit('tickets_changed');
+}
+
 const STATUSES = ['todo', 'in_progress', 'done'];
 const PRIORITIES = ['low', 'medium', 'high'];
 
@@ -29,6 +33,7 @@ router.post('/', async (req, res) => {
         req.user.id,
       ]
     );
+    notify(req);
     res.status(201).json({ id: result.insertId, title, status: 'todo' });
   } catch (err) {
     console.error(err);
@@ -86,6 +91,7 @@ router.patch('/:ticketId', async (req, res) => {
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: 'Ticket not found' });
     }
+    notify(req);
     res.json({ message: 'Ticket updated' });
   } catch (err) {
     console.error(err);
@@ -106,6 +112,7 @@ router.delete('/:ticketId', async (req, res) => {
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: 'Ticket not found' });
     }
+    notify(req);
     res.json({ message: 'Ticket deleted' });
   } catch (err) {
     console.error(err);

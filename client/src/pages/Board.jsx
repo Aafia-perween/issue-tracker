@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { io } from 'socket.io-client';
 import { api } from '../api';
 
 const STATUSES = [
@@ -17,19 +18,32 @@ export default function Board() {
   const [memberEmail, setMemberEmail] = useState('');
   const [message, setMessage] = useState('');
 
-  useEffect(() => {
-    api(`${base}/tickets`)
+  const loadTickets = useCallback(() => {
+    return api(`${base}/tickets`)
       .then(setTickets)
       .catch((err) => setMessage(err.message));
   }, [base]);
+
+  useEffect(() => {
+    loadTickets();
+  }, [loadTickets]);
+
+  useEffect(() => {
+    const socket = io('http://localhost:5000', {
+      auth: { token: localStorage.getItem('token') },
+    });
+    socket.on('connect', () => socket.emit('join_workspace', workspaceId));
+    socket.on('tickets_changed', loadTickets);
+    return () => socket.disconnect();
+  }, [workspaceId, loadTickets]);
 
   const addTicket = async (e) => {
     e.preventDefault();
     setMessage('');
     try {
-      const created = await api(`${base}/tickets`, { method: 'POST', body: { title, priority } });
-      setTickets([{ ...created, priority, description: null }, ...tickets]);
+      await api(`${base}/tickets`, { method: 'POST', body: { title, priority } });
       setTitle('');
+      loadTickets();
     } catch (err) {
       setMessage(err.message);
     }
@@ -41,7 +55,7 @@ export default function Board() {
     const status = STATUSES[index].key;
     try {
       await api(`${base}/tickets/${ticket.id}`, { method: 'PATCH', body: { status } });
-      setTickets(tickets.map((t) => (t.id === ticket.id ? { ...t, status } : t)));
+      loadTickets();
     } catch (err) {
       setMessage(err.message);
     }
@@ -50,7 +64,7 @@ export default function Board() {
   const remove = async (id) => {
     try {
       await api(`${base}/tickets/${id}`, { method: 'DELETE' });
-      setTickets(tickets.filter((t) => t.id !== id));
+      loadTickets();
     } catch (err) {
       setMessage(err.message);
     }
